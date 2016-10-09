@@ -56,18 +56,19 @@ print('Validation set', valid_dataset.shape, valid_labels.shape)
 print('Test set', test_dataset.shape, test_labels.shape)
 
 # Hidden layer parameters
-beta = 0.005
+beta = 0.0005
 hlayer1_nodes = 1000
-hlayer2_nodes = 100
-batch_size = 128
+hlayer2_nodes = 200
+hlayer3_nodes = 50
+batch_size = 200
 num_steps = 12000
 
 # Learning rate decay parameters
 decay_rate = 0.96
-initial_learning_rate = 0.1
+initial_learning_rate = 0.5
 
 # Dropout parameters
-keep_prob = 0.8
+keep_prob = 0.9
 
 graph = tf.Graph()
 with graph.as_default():
@@ -81,11 +82,13 @@ with graph.as_default():
     weights = {
         'h1': tf.Variable(tf.truncated_normal([IMAGE_PIXELS, hlayer1_nodes], stddev = 0.01)),
         'h2': tf.Variable(tf.truncated_normal([hlayer1_nodes, hlayer2_nodes], stddev = 0.01)),
-        'out': tf.Variable(tf.truncated_normal([hlayer2_nodes, num_labels], stddev = 0.01))
+        'h3': tf.Variable(tf.truncated_normal([hlayer2_nodes, hlayer3_nodes], stddev = 0.01)),
+        'out': tf.Variable(tf.truncated_normal([hlayer3_nodes, num_labels], stddev = 0.01))
     }
     biases = {
         'b1': tf.Variable(tf.truncated_normal([hlayer1_nodes])),
         'b2': tf.Variable(tf.truncated_normal([hlayer2_nodes])),
+        'b3': tf.Variable(tf.truncated_normal([hlayer3_nodes])),
         'out': tf.Variable(tf.truncated_normal([num_labels]))
     }
 
@@ -96,7 +99,10 @@ with graph.as_default():
         layer_2 = tf.nn.relu(tf.matmul(layer_1, weights['h2']) + biases['b2'])
         if training_set(data_set):
             layer_2 = tf.nn.dropout(layer_2, keep_prob)
-        out_layer = tf.matmul(layer_2, weights['out']) + biases['out']
+        layer_3 = tf.nn.relu(tf.matmul(layer_2, weights['h3']) + biases['b3'])
+        if training_set(data_set):
+            layer_3 = tf.nn.dropout(layer_3, keep_prob)
+        out_layer = tf.matmul(layer_3, weights['out']) + biases['out']
         return out_layer
 
     def training_set(data_set):
@@ -111,10 +117,12 @@ with graph.as_default():
     for _, bias in biases.items():
         l2_loss = l2_loss + tf.nn.l2_loss(bias)
 
+    pdb.set_trace()
     loss = (tf.reduce_mean(
         tf.nn.softmax_cross_entropy_with_logits(logits, tf_train_labels)) +
         beta * l2_loss
     )
+    print(loss)
 
     global_step = tf.Variable(0)  # count the number of steps taken.
 
@@ -157,6 +165,7 @@ with tf.Session(graph=graph) as session:
         )
         if (step % 500 == 0):
             print("Minibatch loss at step %d: %f" % (step, l))
+            print(l)
             print("Minibatch accuracy: %.1f%%" % accuracy(predictions, batch_labels))
             print("Validation accuracy: %.1f%%" % accuracy(
                 valid_prediction.eval(), valid_labels))

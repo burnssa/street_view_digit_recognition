@@ -63,7 +63,6 @@ class ExtractNotMNISTImageData():
             'Failed to verify ' + filename + '. Can you get to it with a browser?')
         return filename
 
-
     def maybe_extract(self, filename, force=False):
         root = os.path.splitext(os.path.splitext(filename)[0])[0]  # remove .tar.gz
         if os.path.isdir(root) and not force:
