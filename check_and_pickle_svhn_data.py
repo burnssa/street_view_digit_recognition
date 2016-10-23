@@ -142,13 +142,13 @@ class DigitStructFile:
             item = { 'filename' : pictDat[i]["name"] }
             figures = []
             for j in range(len(pictDat[i]['height'])):
-               figure = {}
-               figure['height'] = pictDat[i]['height'][j]
-               figure['label']  = pictDat[i]['label'][j]
-               figure['left']   = pictDat[i]['left'][j]
-               figure['top']    = pictDat[i]['top'][j]
-               figure['width']  = pictDat[i]['width'][j]
-               figures.append(figure)
+                figure = {}
+                figure['height'] = pictDat[i]['height'][j]
+                figure['label']  = pictDat[i]['label'][j]
+                figure['left']   = pictDat[i]['left'][j]
+                figure['top']    = pictDat[i]['top'][j]
+                figure['width']  = pictDat[i]['width'][j]
+                figures.append(figure)
             structCnt = structCnt + 1
             item['boxes'] = figures
             result.append(item)
