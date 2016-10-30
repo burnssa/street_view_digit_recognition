@@ -1,5 +1,5 @@
 ### Deep learning capstone project
-### Training and testing NotMNIST data for letter classification
+### Training and testing SVHN data for letter classification
 
 # Import standard modeling modules
 
@@ -13,7 +13,6 @@ import matplotlib.pyplot as plt
 import os
 import sys
 import tarfile
-from IPython.display import display, Image
 from scipy import ndimage
 from sklearn.linear_model import LogisticRegression
 from six.moves.urllib.request import urlretrieve
@@ -33,19 +32,26 @@ with open(pickle_file, 'rb') as f:
     test_dataset = save['test_dataset']
     test_labels = save['test_labels']
     del save  # hint to help gc free up memory
+
+    # Final dataset cleanup
+    # Remove element where listed as 6-digit number
+    six_digit_index = np.where(train_labels[:,0] == 6)[0][0]
+    train_labels = np.delete(train_labels, six_digit_index, 0)
+    train_dataset = np.delete(train_dataset, six_digit_index, 0)
+
     print('Training set', train_dataset.shape, train_labels.shape)
     print('Validation set', valid_dataset.shape, valid_labels.shape)
     print('Test set', test_dataset.shape, test_labels.shape)
 
 image_size = 32
-# Numbers 0 to 9, plus one for a blank number
+# Numbers 0 to 9, plus 10 to represent a blank potential digit
 num_labels = 11
 # Includes classifier for length of the sequence and one for each of 5 digits
 num_classifiers = 6
 num_channels = 1
 
-batch_size = 20
-num_steps = 3000
+batch_size = 100
+num_steps = 100000
 
 # Convolutional parameters
 patch_size = 4
@@ -61,13 +67,13 @@ lrn_beta = 0.75
 # but with alpha updated based on initial model performance
 
 # Hidden layer parameters
-beta = 0.0005
 hlayer1_nodes = 128
 hlayer2_nodes = 64
 hlayer3_nodes = 16
 
-# Learning rate parameters
-decay_rate = 0.98
+# Loss function parameters
+beta = 0.0005
+decay_rate = 0.99
 initial_learning_rate = 0.05
 
 # Dropout parameters
@@ -77,11 +83,14 @@ keep_prob = 0.8
 potential_total_layers = 7
 
 start_time = timeit.default_timer()
-for num_layers in range(1, 3):# potential_total_layers + 1):
+test_result_table = []
+
+for num_layers in range(2, potential_total_layers + 1):
     lap_time_start = timeit.default_timer()
     tf.reset_default_graph()
-    graph = tf.Graph()
+    graph = tf.get_default_graph()
     with graph.as_default():
+        # tf.reset_default_graph()
         # Big hat tip to - https://goo.gl/6KHb7n
         tf_train_dataset = tf.placeholder(
             tf.float32,
@@ -111,6 +120,8 @@ for num_layers in range(1, 3):# potential_total_layers + 1):
             conv_shape2 = conv_shape1
             depth3 = depth2
             depth2 = depth1
+        else:
+            pass
 
         conv_weights = {
             'cw1': tf.get_variable(
@@ -199,6 +210,8 @@ for num_layers in range(1, 3):# potential_total_layers + 1):
             hlayer2_nodes == num_labels
         elif num_layers == 3:
             hlayer3_nodes == num_labels
+        else:
+            pass
 
         for i in classifier_matrix():
             with tf.variable_scope("classifier_{}".format(i+1)) as scope:
@@ -333,7 +346,6 @@ for num_layers in range(1, 3):# potential_total_layers + 1):
         saver = tf.train.Saver()
         print("Initialized")
         validation_learning_table = {}
-        test_result_table = {}
         for step in range(num_steps):
             offset = (step * batch_size) % (train_labels.shape[0] - batch_size)
             batch_data = train_dataset[offset:(offset + batch_size), :]
@@ -348,7 +360,7 @@ for num_layers in range(1, 3):# potential_total_layers + 1):
                 feed_dict=feed_dict
             )
 
-            if (step % 1000 == 0):
+            if (step % 5000 == 0):
                 print("Minibatch loss at step %d: %f" % (step, final_loss))
                 minibatch_accuracy = accuracy(predictions, batch_labels)
                 print("Minibatch accuracy: %.1f%%" % minibatch_accuracy)
@@ -359,9 +371,10 @@ for num_layers in range(1, 3):# potential_total_layers + 1):
                 validation_learning_table[step] = val_accuracy
 
         test_accuracy = accuracy(test_prediction.eval(), test_labels)
+        test_result_table.append(test_accuracy)
         print(
             "Test accuracy: %.1f%% with %d layers" % (test_accuracy, num_layers)
-            )
+        )
 
         save_path = saver.save(
             session, "svhn_model_{}_layers.ckpt".format(num_layers)
@@ -373,46 +386,69 @@ for num_layers in range(1, 3):# potential_total_layers + 1):
         )
 
         zero_buffer = 0.01 * num_steps
-        end_buffer = 0.05 * num_steps
+        end_buffer = 0.15 * num_steps
+        alpha = (0.1 * num_layers + 0.1)
 
-        colors = ['gray', 'yellow', 'green', 'blue', 'purple', 'orange', 'red']
+        colors = ['y', 'gray', 'g', 'c', 'purple', 'b', 'red']
+        # To indicate division between convolutional and fully-connected
+        linestyles = [
+            'dashed', 'dashed', 'dashed', 'dashed', 'solid', 'solid', 'solid'
+        ]
 
-        plt.ylim([60, 100])
+        plt.ylim([80, 100])
         plt.xlim([0 - zero_buffer, num_steps + end_buffer])
-        line_chart = plt.plot(
+        plt.xlabel('Number of steps')
+        plt.ylabel('Digit recognition accuracy (%)')
+        plt.plot(
             ordered_table.keys(),
             ordered_table.values(),
-            alpha = (0.1 * num_layers + 0.2),
+            alpha = alpha,
             lw = 3,
             label = "{} layers".format(num_layers),
-            color = colors[num_layers - 1]
+            color = colors[num_layers - 1],
+            ls = linestyles[num_layers - 1]
         )
         plt.scatter(
             num_steps,
             test_accuracy,
-            alpha = (0.1 * num_layers + 0.2),
-            s = num_layers * 40,
+            alpha = alpha,
+            s = num_layers * 50,
             color = colors[num_layers - 1]
         )
 
-        plt.suptitle('Learning performance', size=12, y=0.97)
-        plt.savefig('learning_rate_charts.png')
-
         lap_time_end = timeit.default_timer()
         lap_time = lap_time_end - lap_time_start
-        lap_time_in_minutes = lap_time / 60
+        lap_time_in_minutes = round(lap_time / 60)
         print(
-            'Recognition trial with {} layers lasted {} minutes'.format(
+            'Recognition session with {} layers lasted {} minutes'.format(
                 num_layers, lap_time_in_minutes
             )
         )
 
 finish_time = timeit.default_timer()
 process_time = finish_time - start_time
-process_time_in_minutes = process_time / 60
+process_time_in_minutes = round(process_time / 60)
 
 print('Total processing time was {} minutes'.format(process_time_in_minutes))
 plt.legend(loc = 4)
+
+plt.annotate(
+    'Validation accuracy',
+    xy=(num_steps / 2, 95),
+    xytext=(num_steps / 4, 98),
+    arrowprops=dict(facecolor='black', shrink=0.05),
+)
+plt.annotate(
+    'Test accuracy',
+    xy=(num_steps, 96),
+    xytext=(3 * num_steps / 4, 98),
+    arrowprops=dict(facecolor='black', shrink=0.05),
+)
+for acc in test_result_table:
+    test_result = str(round(acc, 1)) + '%'
+    plt.annotate(test_result, xy=(num_steps * 1.04, acc))
+
+plt.suptitle('Digit Sequence Learning Performance', size=12, y=0.97)
+plt.title('For various neural networks layer numbers', fontsize=8, y=1.0)
+plt.savefig('learning_rate_chart.png')
 plt.show()
-
-

@@ -16,6 +16,8 @@ from scipy import ndimage
 from six.moves.urllib.request import urlretrieve
 from six.moves import cPickle as pickle
 import random
+import h5py
+import PIL.Image as Image
 
 url = 'http://ufldl.stanford.edu/housenumbers/'
 last_percent_reported = None
@@ -59,7 +61,6 @@ np.random.seed(133)
 def maybe_extract(filename, force=False):
     root = os.path.splitext(os.path.splitext(filename)[0])[0]  # remove .tar.gz
     if os.path.isdir(root) and not force:
-        # You may override by setting force=True.
         print(
             '%s already present - Skipping extraction of %s.' % (root, filename)
         )
@@ -78,8 +79,6 @@ def maybe_extract(filename, force=False):
 train_folders = maybe_extract(train_filename)
 test_folders = maybe_extract(test_filename)
 extra_folders = maybe_extract(extra_filename)
-
-import h5py
 
 class DigitStructFile:
     def __init__(self, inf):
@@ -134,7 +133,7 @@ class DigitStructFile:
 #          'width', 'height' : dimension of bounding box
 #
 # Note: We may turn this to a generator, if memory issues arise.
-    def getAllDigitStructure_ByDigit(self):
+    def getAllDigitStructureByDigit(self):
         pictDat = self.getAllDigitStructure()
         result = []
         structCnt = 1
@@ -160,17 +159,15 @@ extra_folders = 'extra'
 
 fin = os.path.join(train_folders, 'digitStruct.mat')
 dsf = DigitStructFile(fin)
-train_data = dsf.getAllDigitStructure_ByDigit()
+train_data = dsf.getAllDigitStructureByDigit()
 
 fin = os.path.join(test_folders, 'digitStruct.mat')
 dsf = DigitStructFile(fin)
-test_data = dsf.getAllDigitStructure_ByDigit()
+test_data = dsf.getAllDigitStructureByDigit()
 
 fin = os.path.join(extra_folders, 'digitStruct.mat')
 dsf = DigitStructFile(fin)
-extra_data = dsf.getAllDigitStructure_ByDigit()
-
-import PIL.Image as Image
+extra_data = dsf.getAllDigitStructureByDigit()
 
 # Guidance on converting RGB image to grayscale
 # http://stackoverflow.com/questions/687261/converting-rgb-to-grayscale-intensity
