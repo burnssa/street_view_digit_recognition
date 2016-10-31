@@ -11,13 +11,14 @@ import os
 import sys
 import tarfile
 import tensorflow as tf
-from IPython.display import display, Image
 from scipy import ndimage
 from six.moves.urllib.request import urlretrieve
 from six.moves import cPickle as pickle
 import random
 import h5py
 import PIL.Image as Image
+import matplotlib.image as mpimg
+from scipy.misc import imresize
 
 url = 'http://ufldl.stanford.edu/housenumbers/'
 last_percent_reported = None
@@ -169,8 +170,8 @@ fin = os.path.join(extra_folders, 'digitStruct.mat')
 dsf = DigitStructFile(fin)
 extra_data = dsf.getAllDigitStructureByDigit()
 
-# Guidance on converting RGB image to grayscale
-# http://stackoverflow.com/questions/687261/converting-rgb-to-grayscale-intensity
+# # Guidance on converting RGB image to grayscale
+# # http://stackoverflow.com/questions/687261/converting-rgb-to-grayscale-intensity
 rgb_to_grayscale_factors = [[0.2989],[0.5870],[0.1140]]
 
 def generate_dataset(data, folder):
@@ -263,9 +264,61 @@ train_labels_t = np.concatenate(
     axis=0
 )
 
+dataset_foldername = 'real_life_digit_samples'
+
+def resize(im):
+    resized = imresize(im, (32, 32))
+    return resized
+
+def grayscale(im):
+    gray = np.dot(np.array(im, dtype='float32'), rgb_to_grayscale_factors)
+    return gray
+
+def process_live_data(data_folder):
+    image_dataset = []
+    folders_and_files =  os.listdir('real_life_digit_samples')
+    image_files = [
+        image_file for image_file in folders_and_files if
+            image_file.endswith('.png')
+    ]
+
+def process_live_data(data_folder):
+    image_dataset = []
+    folders_and_files =  os.listdir('real_life_digit_samples')
+    image_files = [
+        image_file for image_file in folders_and_files if
+            image_file.endswith('.png')
+    ]
+
+    for i, image_file in enumerate(image_files):
+        full_filename = dataset_foldername + '/' + image_file
+        im = mpimg.imread(full_filename)
+        plt.imshow(im)
+        plt.show(block = False)
+        plt.pause(0.001)
+
+        # Converting from rgba to rgb
+        rgb_im = im[:,:,:3]
+        resized_im = resize(rgb_im)
+        gray_im = grayscale(resized_im)
+
+        mean = np.mean(gray_im, dtype='float32')
+        std = np.std(gray_im, dtype='float32', ddof=1)
+        if std < 1e-4: std = 1.
+        normalized_im = (gray_im - mean) / std
+        image_dataset.append(normalized_im)
+        image_data_array = np.asarray(image_dataset)
+
+    return image_data_array
+
+live_dataset = process_live_data(dataset_foldername)
+
 print(train_dataset_t.shape, train_labels_t.shape)
 print(test_dataset.shape, test_labels.shape)
 print(valid_dataset.shape, valid_labels.shape)
+print(valid_dataset.shape, valid_labels.shape)
+
+print(live_dataset.shape)
 
 pickle_file = 'SVHN_multi.pickle'
 
@@ -278,6 +331,7 @@ try:
         'valid_labels': valid_labels,
         'test_dataset': test_dataset,
         'test_labels': test_labels,
+        'real_life_dataset': live_dataset
     }
     pickle.dump(save, f, pickle.HIGHEST_PROTOCOL)
     f.close()

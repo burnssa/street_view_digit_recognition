@@ -14,12 +14,14 @@ import os
 import sys
 import tarfile
 from scipy import ndimage
-from sklearn.linear_model import LogisticRegression
 from six.moves.urllib.request import urlretrieve
 from six.moves import cPickle as pickle
 import pdb
 import timeit
 import collections
+from scipy.misc import imresize
+import datetime
+import matplotlib.image as mpimg
 
 pickle_file = 'SVHN_multi.pickle'
 
@@ -31,6 +33,7 @@ with open(pickle_file, 'rb') as f:
     valid_labels = save['valid_labels']
     test_dataset = save['test_dataset']
     test_labels = save['test_labels']
+    real_life_dataset = save['real_life_dataset']
     del save  # hint to help gc free up memory
 
     # Final dataset cleanup
@@ -42,6 +45,9 @@ with open(pickle_file, 'rb') as f:
     print('Training set', train_dataset.shape, train_labels.shape)
     print('Validation set', valid_dataset.shape, valid_labels.shape)
     print('Test set', test_dataset.shape, test_labels.shape)
+    print('Real life set', real_life_dataset.shape)
+
+real_life_flag = False # False to run training / True to predict labels for real images
 
 image_size = 32
 # Numbers 0 to 9, plus 10 to represent a blank potential digit
@@ -51,7 +57,7 @@ num_classifiers = 6
 num_channels = 1
 
 batch_size = 100
-num_steps = 100000
+num_steps = 200000
 
 # Convolutional parameters
 patch_size = 4
@@ -73,7 +79,7 @@ hlayer3_nodes = 16
 
 # Loss function parameters
 beta = 0.0005
-decay_rate = 0.99
+decay_rate = 0.98
 initial_learning_rate = 0.05
 
 # Dropout parameters
@@ -85,12 +91,11 @@ potential_total_layers = 7
 start_time = timeit.default_timer()
 test_result_table = []
 
-for num_layers in range(2, potential_total_layers + 1):
+for num_layers in range(7, potential_total_layers + 1):
     lap_time_start = timeit.default_timer()
     tf.reset_default_graph()
     graph = tf.get_default_graph()
     with graph.as_default():
-        # tf.reset_default_graph()
         # Big hat tip to - https://goo.gl/6KHb7n
         tf_train_dataset = tf.placeholder(
             tf.float32,
@@ -100,7 +105,10 @@ for num_layers in range(2, potential_total_layers + 1):
             tf.int32, shape = ([batch_size, num_classifiers])
         )
         tf_valid_dataset = tf.constant(valid_dataset)
-        tf_test_dataset = tf.constant(test_dataset)
+        if real_life_flag:
+            tf_test_dataset = tf.constant(real_life_dataset, dtype = tf.float32)
+        else:
+            tf_test_dataset = tf.constant(test_dataset)
 
         def classifier_matrix():
             return np.arange(0, num_classifiers).tolist()
@@ -345,85 +353,126 @@ for num_layers in range(2, potential_total_layers + 1):
         tf.initialize_all_variables().run()
         saver = tf.train.Saver()
         print("Initialized")
-        validation_learning_table = {}
-        for step in range(num_steps):
-            offset = (step * batch_size) % (train_labels.shape[0] - batch_size)
-            batch_data = train_dataset[offset:(offset + batch_size), :]
-            batch_labels = train_labels[offset:(offset + batch_size), :]
-            feed_dict = {
-                tf_train_dataset : batch_data,
-                tf_train_labels : batch_labels
-            }
 
-            _, final_loss, predictions = session.run(
-                [optimizer, loss, train_prediction],
-                feed_dict=feed_dict
+        if real_life_flag:
+            saver.restore(session, "checkpoints/2016-10-30_latest_svhn_model_7_layers.ckpt")
+            print("Model restored")
+
+            real_life_predictions = session.run(
+                test_prediction, feed_dict= {
+                    tf_test_dataset : real_life_dataset
+                }
             )
+            predicted_labels = np.argmax(real_life_predictions, 2).T
+            label_list = predicted_labels.tolist()
 
-            if (step % 5000 == 0):
-                print("Minibatch loss at step %d: %f" % (step, final_loss))
-                minibatch_accuracy = accuracy(predictions, batch_labels)
-                print("Minibatch accuracy: %.1f%%" % minibatch_accuracy)
-                val_accuracy = accuracy(
-                    valid_prediction.eval(), valid_labels
+            for i, label in enumerate(label_list):
+                pdb.set_trace()
+                joined_label = ''.join(
+                    [str(digit) for digit in label[1:5] if digit != 10]
                 )
-                print("Validation accuracy: %.1f%%" % val_accuracy)
-                validation_learning_table[step] = val_accuracy
+                reshaped_im = real_life_dataset[i][:,:,0]
+                plt.imshow(reshaped_im)
+                plt.title('Real life image {}', fontsize=12)
+                plt.savefig('real_life_image_{}.png'.format(i))
+                plt.show(block = False)
+                plt.pause(0.5)
+                plt.xlabel('Label: {}'.format(joined_label))
+                print(label)
 
-        test_accuracy = accuracy(test_prediction.eval(), test_labels)
-        test_result_table.append(test_accuracy)
-        print(
-            "Test accuracy: %.1f%% with %d layers" % (test_accuracy, num_layers)
-        )
+        else:
+            validation_learning_table = {}
+            for step in range(num_steps):
+                offset = (
+                    step * batch_size) % (train_labels.shape[0] - batch_size
+                )
+                batch_data = train_dataset[offset:(offset + batch_size), :]
+                batch_labels = train_labels[offset:(offset + batch_size), :]
+                feed_dict = {
+                    tf_train_dataset : batch_data,
+                    tf_train_labels : batch_labels
+                }
 
-        save_path = saver.save(
-            session, "svhn_model_{}_layers.ckpt".format(num_layers)
-        )
-        print("Model saved in file: %s" % save_path)
+                _, final_loss, predictions = session.run(
+                    [optimizer, loss, train_prediction],
+                    feed_dict=feed_dict
+                )
 
-        ordered_table = collections.OrderedDict(
-            sorted(validation_learning_table.items())
-        )
+                if (step % 5000 == 0):
+                    print("Minibatch loss at step %d: %f" % (step, final_loss))
+                    minibatch_accuracy = accuracy(predictions, batch_labels)
+                    print("Minibatch accuracy: %.1f%%" % minibatch_accuracy)
+                    val_accuracy = accuracy(
+                        valid_prediction.eval(), valid_labels
+                    )
+                    print("Validation accuracy: %.1f%%" % val_accuracy)
+                    validation_learning_table[step] = val_accuracy
 
-        zero_buffer = 0.01 * num_steps
-        end_buffer = 0.15 * num_steps
-        alpha = (0.1 * num_layers + 0.1)
-
-        colors = ['y', 'gray', 'g', 'c', 'purple', 'b', 'red']
-        # To indicate division between convolutional and fully-connected
-        linestyles = [
-            'dashed', 'dashed', 'dashed', 'dashed', 'solid', 'solid', 'solid'
-        ]
-
-        plt.ylim([80, 100])
-        plt.xlim([0 - zero_buffer, num_steps + end_buffer])
-        plt.xlabel('Number of steps')
-        plt.ylabel('Digit recognition accuracy (%)')
-        plt.plot(
-            ordered_table.keys(),
-            ordered_table.values(),
-            alpha = alpha,
-            lw = 3,
-            label = "{} layers".format(num_layers),
-            color = colors[num_layers - 1],
-            ls = linestyles[num_layers - 1]
-        )
-        plt.scatter(
-            num_steps,
-            test_accuracy,
-            alpha = alpha,
-            s = num_layers * 50,
-            color = colors[num_layers - 1]
-        )
-
-        lap_time_end = timeit.default_timer()
-        lap_time = lap_time_end - lap_time_start
-        lap_time_in_minutes = round(lap_time / 60)
-        print(
-            'Recognition session with {} layers lasted {} minutes'.format(
-                num_layers, lap_time_in_minutes
+            test_accuracy = accuracy(test_prediction.eval(), test_labels)
+            test_result_table.append(test_accuracy)
+            print(
+                "Test accuracy: %.1f%% with %d layers" % (
+                    test_accuracy, num_layers
+                )
             )
-        )
+
+            working_directory = os.getcwd()
+            subfolder = 'checkpoints'
+            session_name = "{}_svhn_model_{}_layers.ckpt".format(
+                datetime.datetime.now(), num_layers
+            )
+            filename = os.path.join(
+                working_directory,
+                checkpoints,
+                session_name
+            )
+
+            save_path = saver.save(session, filename)
+            print("Model saved in file: %s" % save_path)
+
+            ordered_table = collections.OrderedDict(
+                sorted(validation_learning_table.items())
+            )
+
+            zero_buffer = 0.01 * num_steps
+            end_buffer = 0.15 * num_steps
+            alpha = (0.1 * num_layers + 0.1)
+
+            colors = ['y', 'gray', 'g', 'c', 'purple', 'b', 'red']
+            # To indicate division between convolutional and fully-connected
+            linestyles = [
+                'dashed', 'dashed', 'dashed', 'dashed', 'solid', 'solid', 'solid'
+            ]
+
+            plt.ylim([80, 100])
+            plt.xlim([0 - zero_buffer, num_steps + end_buffer])
+            plt.xlabel('Number of steps')
+            plt.ylabel('Digit recognition accuracy (%)')
+            plt.plot(
+                ordered_table.keys(),
+                ordered_table.values(),
+                alpha = alpha,
+                lw = 3,
+                label = "{} layers".format(num_layers),
+                color = colors[num_layers - 1],
+                ls = linestyles[num_layers - 1]
+            )
+            plt.scatter(
+                num_steps,
+                test_accuracy,
+                alpha = alpha,
+                s = num_layers * 50,
+                color = colors[num_layers - 1]
+            )
+
+            lap_time_end = timeit.default_timer()
+            lap_time = lap_time_end - lap_time_start
+            lap_time_in_minutes = round(lap_time / 60)
+            print(
+                'Recognition session with {} layers lasted {} minutes'.format(
+                    num_layers, lap_time_in_minutes
+                )
+            )
 
 finish_time = timeit.default_timer()
 process_time = finish_time - start_time
@@ -451,4 +500,7 @@ for acc in test_result_table:
 plt.suptitle('Digit Sequence Learning Performance', size=12, y=0.97)
 plt.title('For various neural networks layer numbers', fontsize=8, y=1.0)
 plt.savefig('learning_rate_chart.png')
-plt.show()
+# plt.show()
+
+
+

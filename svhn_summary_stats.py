@@ -42,8 +42,6 @@ def get_average_number_of_digits(data_labels):
 def get_dataset_rows(dataset):
     return dataset.shape[0]
 
-pdb.set_trace()
-
 six_digit_index = np.where(train_labels[:,0] == 6)[0][0]
 train_labels = np.delete(train_labels, six_digit_index, 0)
 train_dataset = np.delete(train_dataset, six_digit_index, 0)
@@ -64,5 +62,8 @@ print('Test Dataset - summary stats')
 print('Dataset rows: {}'.format(get_dataset_rows(test_dataset)))
 get_average_number_of_digits(test_labels)
 get_distribution_of_digits(test_labels)
+
+
+
 
 
