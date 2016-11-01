@@ -91,7 +91,7 @@ potential_total_layers = 7
 start_time = timeit.default_timer()
 test_result_table = []
 
-for num_layers in range(7, potential_total_layers + 1):
+for num_layers in range(2, potential_total_layers + 1):
     lap_time_start = timeit.default_timer()
     tf.reset_default_graph()
     graph = tf.get_default_graph()
@@ -355,7 +355,7 @@ for num_layers in range(7, potential_total_layers + 1):
         print("Initialized")
 
         if real_life_flag:
-            saver.restore(session, "checkpoints/2016-10-30_latest_svhn_model_7_layers.ckpt")
+            saver.restore(session, "checkpoints/2016-10-31_200k_step_model_7_layers.ckpt")
             print("Model restored")
 
             real_life_predictions = session.run(
@@ -367,17 +367,25 @@ for num_layers in range(7, potential_total_layers + 1):
             label_list = predicted_labels.tolist()
 
             for i, label in enumerate(label_list):
-                pdb.set_trace()
                 joined_label = ''.join(
                     [str(digit) for digit in label[1:5] if digit != 10]
                 )
                 reshaped_im = real_life_dataset[i][:,:,0]
-                plt.imshow(reshaped_im)
-                plt.title('Real life image {}', fontsize=12)
-                plt.savefig('real_life_image_{}.png'.format(i))
+                plt.imshow(reshaped_im, cmap = 'Greys_r')
+                plt.title("Real life image {}".format(i + 1), fontsize = 18)
+                plt.text(
+                    10,
+                    30,
+                    'Label: {}'.format(joined_label),
+                    fontsize = 22,
+                    color = 'r',
+                    bbox=dict(facecolor='cyan', alpha=0.7)
+                )
+                plt.axis('off')
+                plt.savefig("real_life_image_{}.png".format(i + 1))
                 plt.show(block = False)
-                plt.pause(0.5)
-                plt.xlabel('Label: {}'.format(joined_label))
+                plt.pause(2.0)
+                plt.gcf().clear()
                 print(label)
 
         else:
@@ -423,7 +431,7 @@ for num_layers in range(7, potential_total_layers + 1):
             )
             filename = os.path.join(
                 working_directory,
-                checkpoints,
+                subfolder,
                 session_name
             )
 
@@ -474,33 +482,33 @@ for num_layers in range(7, potential_total_layers + 1):
                 )
             )
 
-finish_time = timeit.default_timer()
-process_time = finish_time - start_time
-process_time_in_minutes = round(process_time / 60)
+            finish_time = timeit.default_timer()
+            process_time = finish_time - start_time
+            process_time_in_minutes = round(process_time / 60)
 
-print('Total processing time was {} minutes'.format(process_time_in_minutes))
-plt.legend(loc = 4)
+            print('Total processing time was {} minutes'.format(process_time_in_minutes))
+            plt.legend(loc = 4)
 
-plt.annotate(
-    'Validation accuracy',
-    xy=(num_steps / 2, 95),
-    xytext=(num_steps / 4, 98),
-    arrowprops=dict(facecolor='black', shrink=0.05),
-)
-plt.annotate(
-    'Test accuracy',
-    xy=(num_steps, 96),
-    xytext=(3 * num_steps / 4, 98),
-    arrowprops=dict(facecolor='black', shrink=0.05),
-)
-for acc in test_result_table:
-    test_result = str(round(acc, 1)) + '%'
-    plt.annotate(test_result, xy=(num_steps * 1.04, acc))
+            plt.annotate(
+                'Validation accuracy',
+                xy=(num_steps / 2, 95),
+                xytext=(num_steps / 4, 98),
+                arrowprops=dict(facecolor='black', shrink=0.05),
+            )
+            plt.annotate(
+                'Test accuracy',
+                xy=(num_steps, 96),
+                xytext=(3 * num_steps / 4, 98),
+                arrowprops=dict(facecolor='black', shrink=0.05),
+            )
+            for acc in test_result_table:
+                test_result = str(round(acc, 1)) + '%'
+                plt.annotate(test_result, xy=(num_steps * 1.04, acc))
 
-plt.suptitle('Digit Sequence Learning Performance', size=12, y=0.97)
-plt.title('For various neural networks layer numbers', fontsize=8, y=1.0)
-plt.savefig('learning_rate_chart.png')
-# plt.show()
+            plt.suptitle('Digit Sequence Learning Performance', size=12, y=0.97)
+            plt.title('For various neural networks layer numbers', fontsize=8, y=1.0)
+            plt.savefig('learning_rate_chart.png')
+            plt.show()
 
 
 

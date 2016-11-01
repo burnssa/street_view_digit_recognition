@@ -143,8 +143,8 @@ def print_summary_dimension_data(widths, heights):
     plt.hist(heights, bins='auto')
     plt.title('Histogram of training data digit box heights')
     plt.xlabel('Pixel size bins')
-    plt.savefig('digit_box_height_histogram.png')
     plt.xlim(0, max_height_percentile)
+    plt.savefig('digit_box_height_histogram.png')
     plt.show()
 
     print('Average digit box width: {}'.format(np.mean(widths)))
@@ -153,7 +153,7 @@ def print_summary_dimension_data(widths, heights):
 
     print('Average digit box height: {}'.format(np.mean(heights)))
     print('Max digit box height: {}'.format(np.max(heights)))
-    print('98th percentile box width: {}'.format(max_height_percentile))
+    print('98th percentile digit box height: {}'.format(max_height_percentile))
 
 print('Printing histogram')
 

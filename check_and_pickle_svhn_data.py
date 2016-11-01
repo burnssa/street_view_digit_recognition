@@ -124,16 +124,6 @@ class DigitStructFile:
             self.getDigitStructure(i) for i in range(len(self.digitStructName))
         ]
 
-# Return a restructured version of the dataset (one structure by boxed digit).
-#
-#   Return a list of such dicts :
-#      'filename' : filename of the samples
-#      'boxes' : list of such dicts (one by digit) :
-#          'label' : 1 to 9 corresponding digits. 10 for digit '0' in image.
-#          'left', 'top' : position of bounding box
-#          'width', 'height' : dimension of bounding box
-#
-# Note: We may turn this to a generator, if memory issues arise.
     def getAllDigitStructureByDigit(self):
         pictDat = self.getAllDigitStructure()
         result = []
