@@ -272,14 +272,6 @@ def process_live_data(data_folder):
             image_file.endswith('.png')
     ]
 
-def process_live_data(data_folder):
-    image_dataset = []
-    folders_and_files =  os.listdir('real_life_digit_samples')
-    image_files = [
-        image_file for image_file in folders_and_files if
-            image_file.endswith('.png')
-    ]
-
     for i, image_file in enumerate(image_files):
         full_filename = dataset_foldername + '/' + image_file
         im = mpimg.imread(full_filename)
